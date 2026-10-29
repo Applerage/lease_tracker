@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lease km tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0E5A41">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lease km">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #E6ECE8;
+    --surface: #F6F9F7;
+    --ink: #10261E;
+    --muted: #4F645A;
+    --line: #BFCEC6;
+    --green: #0E5A41;
+    --green-soft: #CFE3D9;
+    --red: #B3162B;
+    --red-soft: #F0CDD2;
+    --focus: #0E5A41;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --bg: #08150F;
+      --surface: #0F241B;
+      --ink: #E4EEE9;
+      --muted: #8AA396;
+      --line: #23423A;
+      --green: #4CC79A;
+      --green-soft: #17382D;
+      --red: #FF6577;
+      --red-soft: #3D1A21;
+      --focus: #4CC79A;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    margin: 0;
+    font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: max(28px, env(safe-area-inset-top)) 18px max(64px, env(safe-area-inset-bottom)); }
+  h1 { font-size: 15px; font-weight: 600; margin: 0 0 4px; color: var(--muted); letter-spacing: .01em; }
+  .sync { font-size: 13px; color: var(--muted); margin: 0 0 22px; }
+  input, textarea { font-size: 16px; }
+  h2 { font-size: 17px; font-weight: 650; margin: 0 0 12px; }
+  section { margin-top: 40px; }
+  .hero-number {
+    font-size: clamp(54px, 15vw, 104px);
+    line-height: .95;
+    font-weight: 800;
+    letter-spacing: -.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-number small { font-size: .32em; font-weight: 600; letter-spacing: 0; margin-left: .15em; color: var(--muted); }
+  .hero-number.good { color: var(--green); }
+  .hero-number.bad { color: var(--red); }
+  .hero-line { font-size: 20px; font-weight: 600; margin: 8px 0 0; }
+  .hero-sub { color: var(--muted); margin: 4px 0 0; font-size: 14px; }
+
+  /* pace track */
+  .track-wrap { margin-top: 30px; }
+  .track { position: relative; height: 26px; background: var(--surface); border: 1px solid var(--line); border-radius: 3px; }
+  .track .fill { position: absolute; inset: 0 auto 0 0; background: var(--green); border-radius: 2px 0 0 2px; }
+  .track.over .fill { background: var(--red); }
+  .track .pace {
+    position: absolute; top: -9px; bottom: -9px; width: 3px; background: var(--ink); transform: translateX(-1px);
+  }
+  .track-legend { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 14px; }
+  .key { display: inline-block; width: 12px; height: 12px; vertical-align: -1px; margin-right: 6px; border-radius: 2px; }
+
+  /* stats */
+  dl.stats { margin: 0; border-top: 1px solid var(--line); }
+  dl.stats div { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  dl.stats dt { color: var(--muted); font-size: 14px; }
+  dl.stats dd { margin: 0; font-weight: 650; font-variant-numeric: tabular-nums; text-align: right; }
+  dd.good { color: var(--green); }
+  dd.bad { color: var(--red); }
+  .note { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+
+  /* months chart */
+  .chart { width: 100%; height: auto; display: block; }
+  .chart text { fill: var(--muted); font-size: 10px; font-family: inherit; }
+  .bar-good { fill: var(--green); }
+  .bar-bad { fill: var(--red); }
+  .zero { stroke: var(--ink); stroke-width: 1; }
+
+  /* forms */
+  form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  label { display: flex; flex-direction: column; font-size: 13px; color: var(--muted); gap: 4px; flex: 1 1 140px; }
+  input, textarea {
+    font: inherit; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 4px; padding: 9px 10px; min-width: 0; width: 100%;
+  }
+  textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; min-height: 120px; }
+  input:focus-visible, textarea:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  button {
+    font: inherit; font-weight: 650; cursor: pointer; border-radius: 4px; padding: 9px 16px;
+    border: 1px solid var(--green); background: var(--green); color: var(--surface);
+  }
+  @media (prefers-color-scheme: dark) { button { color: #06130D; } }
+  button.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  button.link { border: 0; background: none; color: var(--muted); padding: 2px 6px; font-weight: 500; text-decoration: underline; }
+  .row-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  details { border-top: 1px solid var(--line); padding: 12px 0; }
+  details:last-of-type { border-bottom: 1px solid var(--line); }
+  summary { cursor: pointer; font-weight: 650; }
+  details > *:not(summary) { margin-top: 14px; }
+  .msg { font-size: 13px; color: var(--red); min-height: 18px; margin: 8px 0 0; }
+
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; }
+  th { text-align: left; font-weight: 600; color: var(--muted); font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  td { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  th:not(:first-child), td:not(:first-child) { text-align: right; }
+
+  .empty { padding: 26px 0; }
+  .empty p { margin: 0 0 6px; }
+  .empty .lead { font-size: 22px; font-weight: 700; }
+  .hidden { display: none !important; }
+  @media (prefers-reduced-motion: no-preference) {
+    .track .fill { transition: width .5s ease; }
+    .track .pace { transition: left .5s ease; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Lease km tracker</h1>
+  <p class="sync" id="sync"></p>
+
+  <div id="empty" class="empty hidden">
+    <p class="lead">Add your lease dates and a first odometer reading.</p>
+    <p>Open "Lease setup" below, then log what your Alfa Connect app shows. Or load sample data to see how the tracker works.</p>
+    <div class="row-actions"><button id="demoBtn" type="button">Load sample data</button></div>
+  </div>
+
+  <div id="dash" class="hidden">
+    <div id="hero"></div>
+
+    <div class="track-wrap">
+      <div id="track" class="track"><div class="fill" id="fill"></div><div class="pace" id="pace"></div></div>
+      <div class="track-legend" id="trackLegend"></div>
+    </div>
+
+    <section>
+      <h2>Where you stand</h2>
+      <dl class="stats" id="stats"></dl>
+      <p class="note" id="statsNote"></p>
+    </section>
+
+    <section>
+      <h2>Km saved or overspent, per lease month</h2>
+      <div id="chart"></div>
+      <p class="note">Bars above the line mean you drove less than your monthly allowance. Months are counted from your lease start date, and values between readings are estimated evenly.</p>
+    </section>
+  </div>
+
+  <section>
+    <h2>Log the odometer</h2>
+    <form id="readingForm">
+      <label>Date<input type="date" id="rDate" required></label>
+      <label>Odometer (km)<input type="number" id="rOdo" inputmode="numeric" min="0" step="1" required placeholder="e.g. 42180"></label>
+      <button type="submit">Save reading</button>
+    </form>
+    <p class="msg" id="rMsg" role="alert"></p>
+    <div id="log"></div>
+  </section>
+
+  <section>
+    <details id="setupBox" open>
+      <summary>Lease setup</summary>
+      <form id="setupForm">
+        <label>Lease start date<input type="date" id="sStart" required></label>
+        <label>Lease length (months)<input type="number" id="sMonths" min="1" step="1" required></label>
+        <label>Total km allowed<input type="number" id="sTotal" min="1" step="1" required></label>
+        <label>Odometer at delivery (km)<input type="number" id="sStartOdo" min="0" step="1" required></label>
+        <label>Cost per excess km (optional)<input type="number" id="sFee" min="0" step="0.01" placeholder="e.g. 0.12"></label>
+        <button type="submit">Save setup</button>
+      </form>
+    </details>
+
+    <details>
+      <summary>Backup and restore</summary>
+      <p class="note" style="margin-top:0">Copy this text somewhere safe. Paste it back in and press Restore to reload your data in a new browser or device.</p>
+      <textarea id="backup" spellcheck="false"></textarea>
+      <div class="row-actions">
+        <button class="ghost" type="button" id="restoreBtn">Restore from text</button>
+        <button class="ghost" type="button" id="resetBtn">Clear all data</button>
+      </div>
+      <p class="msg" id="bMsg" role="alert"></p>
+    </details>
+
+    <details>
+      <summary>How automatic readings work</summary>
+      <p style="margin-top:0">A scheduled job on GitHub logs in to your Alfa Connect account once a day, reads the odometer and saves it to <code>docs/readings.json</code>. This page loads that file every time you open it. Readings you type in by hand are kept on this phone and are used alongside the automatic ones.</p>
+      <p class="note">Your lease details are stored on this phone. To change the starting values for a fresh install, edit <code>docs/config.json</code> in the repository.</p>
+      </details>
+  </section>
+</main>
+
+<script>
+(function () {
+  var DAY = 86400000;
+  var KEY = 'lease-km-tracker:v1';
+  var defaults = { start: '', months: 60, total: 180000, startOdo: 0, fee: '', readings: [] };
+  var state = JSON.parse(JSON.stringify(defaults));
+  var auto = [];
+  var syncedAt = null;
+  var dataUrl = 'readings.json';
+  var mem = {};
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- date helpers (UTC, date-only) ---------- */
+  function parseD(s) { var p = s.split('-'); return Date.UTC(+p[0], +p[1] - 1, +p[2]); }
+  function fmtD(t) { return new Date(t).toISOString().slice(0, 10); }
+  function addMonths(t, n) {
+    var d = new Date(t), y = d.getUTCFullYear(), m = d.getUTCMonth() + n, day = d.getUTCDate();
+    var last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    return Date.UTC(y, m, Math.min(day, last));
+  }
+  function todayT() { var n = new Date(); return Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()); }
+  function niceDate(t) { return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
+  function monthLabel(t) { return new Date(t).toLocaleDateString(undefined, { month: 'short', year: '2-digit', timeZone: 'UTC' }); }
+  var nf = new Intl.NumberFormat();
+  function km(n) { return nf.format(Math.round(n)); }
+
+  /* ---------- storage ---------- */
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return mem[k] || null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { mem[k] = v; } }
+  async function fetchJSON(url) {
+    var r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+  async function load() {
+    var saved = lsGet(KEY);
+    if (saved) { try { state = Object.assign({}, defaults, JSON.parse(saved)); } catch (e) {} }
+    try {
+      var c = await fetchJSON('config.json');
+      if (c.dataUrl) dataUrl = c.dataUrl;
+      if (!state.start && c.start) {
+        state.start = c.start; state.months = +c.months || 60; state.total = +c.total || 180000;
+        state.startOdo = +c.startOdo || 0; state.fee = c.fee || '';
+      }
+    } catch (e) { /* no config file */ }
+    await loadCar();
+  }
+  async function loadCar() {
+    try {
+      var r = await fetchJSON(dataUrl);
+      auto = (r.readings || []).filter(function (x) { return x && x.date && isFinite(+x.odo); });
+      syncedAt = auto.length ? auto[auto.length - 1].date : null;
+    } catch (e) { auto = []; syncedAt = null; }
+  }
+  function save() {
+    lsSet(KEY, JSON.stringify(state));
+    $('backup').value = JSON.stringify(state);
+  }
+  function merged() {
+    var m = {};
+    auto.forEach(function (r) { m[r.date] = { date: r.date, odo: +r.odo, src: 'car' }; });
+    state.readings.forEach(function (r) { m[r.date] = { date: r.date, odo: +r.odo, src: 'manual' }; });
+    return Object.keys(m).map(function (k) { return m[k]; });
+  }
+
+  /* ---------- calculations ---------- */
+  function points() {
+    var s = parseD(state.start);
+    var pts = [{ t: s, o: +state.startOdo }];
+    merged().sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (r) {
+      var t = parseD(r.date);
+      if (t > s) pts.push({ t: t, o: +r.odo });
+    });
+    return pts;
+  }
+  function odoAt(pts, t) {
+    if (t <= pts[0].t) return pts[0].o;
+    for (var i = 1; i < pts.length; i++) {
+      if (t <= pts[i].t) {
+        var a = pts[i - 1], b = pts[i];
+        return a.o + (b.o - a.o) * ((t - a.t) / (b.t - a.t));
+      }
+    }
+    return pts[pts.length - 1].o;
+  }
+  function compute() {
+    var s = parseD(state.start);
+    var e = addMonths(s, +state.months);
+    var totalDays = (e - s) / DAY;
+    var perDay = state.total / totalDays;
+    var pts = points();
+    var last = pts[pts.length - 1];
+    var today = todayT();
+    var elapsed = (last.t - s) / DAY;
+    var allowed = perDay * elapsed;
+    var driven = last.o - state.startOdo;
+    var diff = allowed - driven;
+    var daysLeftReading = Math.max(0, (e - last.t) / DAY);
+    var remaining = state.total - driven;
+    var avg = elapsed > 0 ? driven / elapsed : 0;
+    var projected = driven + avg * daysLeftReading;
+    var projDiff = state.total - projected;
+    var needPerDay = daysLeftReading > 0 ? remaining / daysLeftReading : 0;
+
+    var from = Math.max(s, last.t - 30 * DAY);
+    var days30 = (last.t - from) / DAY;
+    var driven30 = odoAt(pts, last.t) - odoAt(pts, from);
+    var saved30 = perDay * days30 - driven30;
+
+    var months = [];
+    for (var i = 0; ; i++) {
+      var ps = addMonths(s, i);
+      if (ps >= last.t || ps >= e) break;
+      var pe = Math.min(addMonths(s, i + 1), e);
+      var pe2 = Math.min(pe, last.t);
+      var d = odoAt(pts, pe2) - odoAt(pts, ps);
+      var al = perDay * (pe2 - ps) / DAY;
+      months.push({ label: monthLabel(ps), driven: d, allowed: al, saved: al - d, partial: pe2 < pe });
+    }
+    return { s: s, e: e, perDay: perDay, last: last, today: today, elapsed: elapsed, allowed: allowed,
+      driven: driven, diff: diff, daysLeftReading: daysLeftReading, daysLeftToday: Math.max(0, (e - today) / DAY),
+      remaining: remaining, avg: avg, projected: projected, projDiff: projDiff, needPerDay: needPerDay,
+      driven30: driven30, saved30: saved30, days30: days30, months: months, hasReadings: pts.length > 1 };
+  }
+
+  /* ---------- rendering ---------- */
+  function row(label, value, cls) {
+    return '<div><dt>' + label + '</dt><dd' + (cls ? ' class="' + cls + '"' : '') + '>' + value + '</dd></div>';
+  }
+  function render() {
+    var configured = !!state.start;
+    var c = configured ? compute() : null;
+    var show = configured && c.hasReadings;
+    $('empty').classList.toggle('hidden', show);
+    $('dash').classList.toggle('hidden', !show);
+    $('backup').value = JSON.stringify(state);
+    $('sync').textContent = syncedAt ? 'Latest reading from your car: ' + niceDate(parseD(syncedAt)) : 'No automatic readings yet. Enter them by hand or finish the car setup.';
+    renderLog();
+    if (!show) return;
+
+    var ahead = c.diff >= 0;
+    var fee = parseFloat(state.fee);
+    $('hero').innerHTML =
+      '<div class="hero-number ' + (ahead ? 'good' : 'bad') + '">' + (ahead ? '+' : '\u2212') + km(Math.abs(c.diff)) + '<small>km</small></div>' +
+      '<p class="hero-line">' + (ahead ? 'You are ' + km(c.diff) + ' km under your pace.' : 'You are ' + km(-c.diff) + ' km over your pace.') + '</p>' +
+      '<p class="hero-sub">As of ' + niceDate(c.last.t) + ' you have driven ' + km(c.driven) + ' km. The lease allows ' + km(c.allowed) + ' km by that date.</p>';
+
+    var usedPct = Math.min(100, Math.max(0, c.driven / state.total * 100));
+    var pacePct = Math.min(100, Math.max(0, c.allowed / state.total * 100));
+    $('track').classList.toggle('over', !ahead);
+    $('fill').style.width = usedPct + '%';
+    $('pace').style.left = pacePct + '%';
+    $('trackLegend').innerHTML =
+      '<span><span class="key" style="background:' + (ahead ? 'var(--green)' : 'var(--red)') + '"></span>Driven: ' + km(c.driven) + ' km</span>' +
+      '<span><span class="key" style="background:var(--ink)"></span>Allowed so far: ' + km(c.allowed) + ' km</span>' +
+      '<span>Total: ' + km(state.total) + ' km</span>';
+
+    var h = '';
+    h += row('Km left on the lease', km(c.remaining) + ' km', c.remaining < 0 ? 'bad' : '');
+    h += row('Days to lease end', km(c.daysLeftToday) + ' days (' + niceDate(c.e) + ')');
+    h += row('Daily allowance', km(c.perDay) + ' km/day');
+    h += row('Your average since delivery', km(c.avg) + ' km/day', c.avg <= c.perDay ? 'good' : 'bad');
+    h += row('Daily budget from now on', km(c.needPerDay) + ' km/day');
+    h += row('Last ' + Math.round(c.days30) + ' days', km(c.driven30) + ' km driven');
+    h += row('Saved in that period', (c.saved30 >= 0 ? '+' : '\u2212') + km(Math.abs(c.saved30)) + ' km', c.saved30 >= 0 ? 'good' : 'bad');
+    h += row('Projected total at lease end', km(c.projected) + ' km');
+    h += row(c.projDiff >= 0 ? 'Projected km spare at the end' : 'Projected km over at the end',
+      km(Math.abs(c.projDiff)) + ' km', c.projDiff >= 0 ? 'good' : 'bad');
+    if (!isNaN(fee) && fee > 0 && c.projDiff < 0) h += row('Estimated excess charge', nf.format(Math.round(-c.projDiff * fee * 100) / 100), 'bad');
+    $('stats').innerHTML = h;
+    $('statsNote').textContent = 'The projection assumes you keep driving at your average so far. Allowance is spread evenly across every day of the lease.';
+
+    renderChart(c.months);
+  }
+
+  function renderChart(ms) {
+    if (!ms.length) { $('chart').innerHTML = '<p class="note">Log a reading after your first lease month to see the breakdown.</p>'; return; }
+    var W = 700, H = 240, padL = 8, padR = 8, top = 16, bottom = 30;
+    var maxAbs = Math.max.apply(null, ms.map(function (m) { return Math.abs(m.saved); })) || 1;
+    var mid = top + (H - top - bottom) / 2;
+    var half = (H - top - bottom) / 2;
+    var slot = (W - padL - padR) / ms.length;
+    var bw = Math.min(28, slot * 0.7);
+    var step = Math.ceil(ms.length / 12);
+    var svg = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Kilometres saved or overspent per lease month">';
+    svg += '<line class="zero" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + mid + '" y2="' + mid + '"/>';
+    ms.forEach(function (m, i) {
+      var h = Math.abs(m.saved) / maxAbs * (half - 14);
+      var x = padL + slot * i + (slot - bw) / 2;
+      var y = m.saved >= 0 ? mid - h : mid;
+      var good = m.saved >= 0;
+      svg += '<rect class="' + (good ? 'bar-good' : 'bar-bad') + '" x="' + x + '" y="' + y + '" width="' + bw + '" height="' + Math.max(h, 1) + '"' + (m.partial ? ' opacity=".55"' : '') + '><title>' +
+        m.label + (m.partial ? ' (so far)' : '') + ': drove ' + km(m.driven) + ' km of ' + km(m.allowed) + ' allowed (' + (good ? 'saved ' : 'over by ') + km(Math.abs(m.saved)) + ' km)</title></rect>';
+      if (i % step === 0) svg += '<text x="' + (x + bw / 2) + '" y="' + (H - 10) + '" text-anchor="middle">' + m.label + '</text>';
+    });
+    svg += '<text x="' + padL + '" y="11">+' + km(maxAbs) + ' km</text>';
+    svg += '</svg>';
+    $('chart').innerHTML = svg;
+  }
+
+  function renderLog() {
+    var rs = merged().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    if (!rs.length) { $('log').innerHTML = ''; return; }
+    var prev = state.start ? +state.startOdo : null, prevDate = state.start || null;
+    var rows = rs.map(function (r) {
+      var delta = prev === null ? '' : '+' + km(r.odo - prev) + ' km';
+      prev = +r.odo;
+      return '<tr><td>' + niceDate(parseD(r.date)) + '</td><td>' + km(r.odo) + ' km</td><td>' + delta + '</td><td>' + (r.src === 'car' ? '<span class="note" style="margin:0">from car</span>' : '<button class="link" data-del="' + r.date + '|' + r.odo + '" type="button" aria-label="Delete reading from ' + r.date + '">Delete</button>') + '</td></tr>';
+    });
+    $('log').innerHTML = '<table style="margin-top:18px"><thead><tr><th>Date</th><th>Odometer</th><th>Since previous</th><th></th></tr></thead><tbody>' + rows.reverse().join('') + '</tbody></table>';
+  }
+
+  /* ---------- events ---------- */
+  function fillSetup() {
+    $('sStart').value = state.start;
+    $('sMonths').value = state.months;
+    $('sTotal').value = state.total;
+    $('sStartOdo').value = state.startOdo;
+    $('sFee').value = state.fee;
+  }
+
+  $('setupForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    state.start = $('sStart').value;
+    state.months = +$('sMonths').value;
+    state.total = +$('sTotal').value;
+    state.startOdo = +$('sStartOdo').value;
+    state.fee = $('sFee').value;
+    save(); render();
+  });
+
+  $('readingForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var msg = $('rMsg'); msg.textContent = '';
+    if (!state.start) { msg.textContent = 'Save your lease setup first so readings can be measured from delivery.'; $('setupBox').open = true; return; }
+    var date = $('rDate').value, odo = +$('rOdo').value;
+    if (parseD(date) < parseD(state.start)) { msg.textContent = 'That date is before your lease start.'; return; }
+    if (odo < state.startOdo) { msg.textContent = 'The odometer is lower than the reading at delivery.'; return; }
+    var clash = state.readings.filter(function (r) { return r.date !== date; });
+    var bad = merged().filter(function (r) { return r.date !== date; }).some(function (r) { return (r.date < date && +r.odo > odo) || (r.date > date && +r.odo < odo); });
+    if (bad) { msg.textContent = 'This reading conflicts with another one: the odometer cannot go down over time.'; return; }
+    state.readings = clash.concat([{ date: date, odo: odo }]);
+    $('rOdo').value = '';
+    save(); render();
+  });
+
+  $('log').addEventListener('click', function (ev) {
+    var k = ev.target.getAttribute && ev.target.getAttribute('data-del');
+    if (!k) return;
+    var p = k.split('|');
+    state.readings = state.readings.filter(function (r) { return !(r.date === p[0] && String(r.odo) === p[1]); });
+    save(); render();
+  });
+
+  $('demoBtn').addEventListener('click', function () {
+    var t = todayT();
+    var start = addMonths(t, -14);
+    state = { start: fmtD(start), months: 60, total: 180000, startOdo: 12, fee: '0.12', readings: [] };
+    var odo = 12, cur = start;
+    while (true) {
+      cur = cur + 14 * DAY;
+      if (cur > t) break;
+      var m = (cur - start) / DAY / 30;
+      odo += Math.round((m < 6 ? 41 : m < 10 ? 26 : 36) * 14 + Math.sin(cur / DAY) * 40);
+      state.readings.push({ date: fmtD(cur), odo: odo });
+    }
+    fillSetup(); save(); render();
+  });
+
+  $('restoreBtn').addEventListener('click', function () {
+    var msg = $('bMsg'); msg.textContent = '';
+    try {
+      var o = JSON.parse($('backup').value);
+      if (!o || !Array.isArray(o.readings)) throw new Error('bad');
+      state = Object.assign({}, defaults, o);
+      fillSetup(); save(); render();
+    } catch (e) { msg.textContent = 'That text is not a valid backup.'; }
+  });
+
+  $('resetBtn').addEventListener('click', function () {
+    if (!confirm('Clear your lease setup and all readings?')) return;
+    state = JSON.parse(JSON.stringify(defaults));
+    fillSetup(); save(); render();
+  });
+
+  /* ---------- init ---------- */
+  $('rDate').value = fmtD(todayT());
+  load().then(function () { fillSetup(); $('setupBox').open = !state.start; render(); });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') loadCar().then(render);
+  });
+  if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(function () {}); }
+})();
+</script>
+</body>
+</html>
